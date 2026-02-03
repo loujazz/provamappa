@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAI Bologna Archivio Fotografico</title>
+    
+    <!-- Leaflet CSS (Senza integrity check per evitare blocchi locali) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e293b;
+            --accent-color: #3b82f6;
+            --bg-sidebar: #ffffff;
+            --text-main: #334155;
+            --google-btn-color: #4285F4;
+        }
+
+        /* Reset Globale più robusto */
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Previene scrollbar indesiderate */
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: 320px;
+            min-width: 320px; /* Evita che si schiacci */
+            background: var(--bg-sidebar);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            height: 100%; /* Altezza piena */
+            overflow-y: auto; /* Scroll se il contenuto è troppo lungo */
+        }
+
+        .header {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 20px;
+        }
+
+        /* Nuovi stili per l'header CAI */
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .cai-logo {
+            height: 60px; /* Dimensione logo ottimizzata */
+            width: auto;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            display: block; /* Fix per layout */
+        }
+        
+        /* Fallback icon style (hidden by default) */
+        .fallback-icon {
+            display: none;
+            font-size: 40px;
+            color: var(--primary-color);
+        }
+
+        .header-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-text h1 {
+            font-size: 1.2rem;
+            color: var(--secondary-color);
+            margin: 0;
+            line-height: 1.2;
+            font-weight: 700;
+        }
+
+        .header-text p {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin: 2px 0 0 0;
+            font-weight: 400;
+        }
+
+        /* Auth Section Styles */
+        #auth-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: opacity 0.2s;
+        }
+
+        #authorize_button {
+            background-color: var(--google-btn-color);
+            color: white;
+        }
+        
+        #authorize_button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        #signout_button {
+            background-color: #ef4444;
+            color: white;
+            display: none;
+        }
+
+        .auth-btn:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .user-info {
+            font-size: 0.8rem;
+            color: var(--text-main);
+            margin-bottom: 10px;
+            display: none;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Upload Button Styling */
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+        }
+
+        .file-upload-label:hover {
+            background: #1d4ed8;
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        /* Status & Instructions */
+        #status-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            border-left: 4px solid #cbd5e1;
+            transition: all 0.3s ease;
+            word-wrap: break-word; /* Per evitare che messaggi lunghi rompano il layout */
+        }
+
+        #status-area.waiting {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+        }
+
+        #status-area.success {
+            border-left-color: #10b981;
+            background: #ecfdf5;
+            color: #065f46;
+        }
+        
+        #status-area.error {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .instructions {
+            margin-top: auto;
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.5;
+            padding-top: 20px;
+        }
+
+        /* Map Container */
+        #map {
+            flex-grow: 1;
+            height: 100%;
+            width: 100%; /* Forza larghezza */
+            z-index: 1;
+            background-color: #e2e8f0; /* Colore di fallback mentre carica */
+        }
+
+        /* Popup Styling */
+        .custom-popup .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            overflow: hidden;
+            padding: 0;
+        }
+        
+        .custom-popup .leaflet-popup-content {
+            margin: 0;
+            width: 200px !important;
+        }
+
+        .popup-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .popup-footer {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #f8fafc;
+        }
+
+        .popup-btn {
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: opacity 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .download-btn {
+            background: #e2e8f0;
+            color: var(--text-main);
+        }
+
+        .drive-btn {
+            background: #10b981; /* Verde Drive */
+            color: white;
+        }
+        
+        .drive-btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .popup-btn:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="header">
+            <div class="header-content">
+                <!-- Immagine aggiornata con link PNG diretto e gestione errori -->
+                <img 
+                    src="https://upload.wikimedia.org/wikipedia/it/thumb/a/a2/Club_Alpino_Italiano_Stemma.svg/150px-Club_Alpino_Italiano_Stemma.svg.png" 
+                    alt="Logo CAI" 
+                    class="cai-logo"
+                    onerror="this.style.display='none'; document.getElementById('backup-icon').style.display='block';"
+                >
+                <!-- Icona di backup se l'immagine fallisce -->
+                <i id="backup-icon" class="fa-solid fa-mountain-sun fallback-icon"></i>
+                
+                <div class="header-text">
+                    <h1>CAI Bologna</h1>
+                    <p>Archivio Fotografico</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sezione Autenticazione Google -->
+        <div id="auth-section">
+            <div id="user-display" class="user-info">
+                <i class="fa-solid fa-user-check"></i> <span id="user-email"></span>
+            </div>
+            <button id="authorize_button" class="auth-btn" onclick="handleAuthClick()">
+                <i class="fa-brands fa-google"></i> Accedi al Drive
+            </button>
+            <button id="signout_button" class="auth-btn" onclick="handleSignoutClick()">
+                <i class="fa-solid fa-right-from-bracket"></i> Disconnetti
+            </button>
+        </div>
+
+        <div class="controls">
+            <div class="file-upload">
+                <label for="imageInput" class="file-upload-label">
+                    <i class="fa-solid fa-camera"></i> Carica Foto
+                </label>
+                <input type="file" id="imageInput" accept="image/jpeg, image/png, image/jpg">
+            </div>
+
+            <div id="status-area">
+                <i class="fa-solid fa-circle-info"></i> 
+                <span id="status-text">In attesa...</span>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <p><strong>Workflow Archivio:</strong></p>
+            <ul style="padding-left: 20px; margin: 0;">
+                <li>Accedi con l'account Google Workspace.</li>
+                <li>Carica una foto (GPS automatico o manuale).</li>
+                <li>Dal popup sulla mappa, clicca "Salva su Drive" per archiviare.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <!-- Exif-js -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    
+    <!-- GOOGLE API SCRIPTS -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <script>
+        // --- CONFIGURAZIONE GOOGLE (DA COMPILARE) ---
+        // ⚠️ ATTENZIONE: Il codice NON funzionerà finché non sostituisci le stringhe qui sotto con le tue vere chiavi.
+        // Recupera questi dati dalla Google Cloud Console (https://console.cloud.google.com/)
+        const CLIENT_ID = 'INSERISCI_QUI_IL_TUO_CLIENT_ID'; 
+        const API_KEY = 'INSERISCI_QUI_LA_TUA_API_KEY'; 
+        const FOLDER_ID = 'INSERISCI_QUI_IL_TUO_FOLDER_ID'; // ID della cartella Drive (es. dalla URL)
+
+        // Discovery doc URL for APIs used by the quickstart
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+
+        // Authorization scopes required by the API; multiple scopes can be
+        // included, separated by spaces.
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        // --- 1. Google Auth Initialization ---
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            // VERIFICA DI SICUREZZA: Controlla se le chiavi sono state inserite
+            if (API_KEY.includes('INSERISCI') || CLIENT_ID.includes('INSERISCI')) {
+                console.error("ERRORE CONFIGURAZIONE: API KEY o CLIENT ID mancanti.");
+                updateStatus("⚠️ CONFIGURAZIONE MANCANTE: Devi inserire le tue chiavi API nel codice HTML!", "error");
+                document.getElementById('authorize_button').disabled = true;
+                document.getElementById('authorize_button').innerHTML = "<i class='fa-solid fa-triangle-exclamation'></i> Configurazione Errata";
+                // alert("ATTENZIONE: Per usare Google Drive devi modificare il codice.\n\nSostituisci 'INSERISCI_QUI_...' con le tue chiavi API di Google Cloud Console.");
+                return;
+            }
+
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                gapiInited = true;
+                maybeEnableButtons();
+            } catch (err) {
+                console.error("Errore Init GAPI:", err);
+                // Gestione più gentile dell'errore
+                const errorMsg = err.result?.error?.message || "Chiave API non valida o errore di rete";
+                updateStatus("Errore Google: " + errorMsg, "error");
+            }
+        }
+
+        function gisLoaded() {
+             // Anche qui, evitiamo di inizializzare se manca il Client ID
+             if (CLIENT_ID.includes('INSERISCI')) return;
+
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // defined later
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                // System ready
+                console.log("Google API initialized");
+                updateStatus("Sistema pronto. Accedi a Drive.", "");
+            }
+        }
+
+        function handleAuthClick() {
+            if(!tokenClient) {
+                updateStatus("Errore: Librerie Google non caricate o config errata.", "error");
+                return;
+            }
+
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                document.getElementById('signout_button').style.display = 'flex';
+                document.getElementById('authorize_button').style.display = 'none';
+                
+                // Opzionale: Prendi info utente
+                // In una app reale useremmo OIDC, qui semplifichiamo UI
+                document.getElementById('user-display').style.display = 'flex';
+                document.getElementById('user-email').innerText = "Account Connesso";
+                updateStatus("Connesso a Google Workspace", "success");
+            };
+
+            if (gapi.client.getToken() === null) {
+                // Prompt the user to select a Google Account and ask for consent to share their data
+                // when establishing a new session.
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                // Skip display of account chooser and consent dialog for an existing session.
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                document.getElementById('content').innerText = '';
+                document.getElementById('authorize_button').style.display = 'flex';
+                document.getElementById('signout_button').style.display = 'none';
+                document.getElementById('user-display').style.display = 'none';
+                updateStatus("Disconnesso", "");
+            }
+        }
+
+        // --- 2. Google Drive Upload Logic ---
+
+        // Helper: Convert Base64 DataURL to Blob
+        function dataURLtoBlob(dataurl) {
+            var arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--){
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type:mime});
+        }
+
+        async function uploadToDrive(base64Data, fileName) {
+            if (!gapi.client.getToken()) {
+                updateStatus("Devi accedere prima di salvare!", "error");
+                return;
+            }
+
+            updateStatus("Caricamento su Drive in corso...", "waiting");
+
+            try {
+                const blob = dataURLtoBlob(base64Data);
+                
+                // Metadata
+                const metadata = {
+                    'name': fileName,
+                    'mimeType': 'image/jpeg',
+                    'parents': [FOLDER_ID] // Cartella destinazione
+                };
+
+                // Multipart upload
+                const accessToken = gapi.client.getToken().access_token;
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                form.append('file', blob);
+
+                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+                    body: form
+                });
+
+                const data = await response.json();
+                
+                if(data.id) {
+                    updateStatus("File salvato correttamente su Drive!", "success");
+                    console.log("File ID:", data.id);
+                } else {
+                    console.error("Drive Response:", data);
+                    throw new Error(data.error?.message || "Risposta inattesa da Drive");
+                }
+
+            } catch (err) {
+                console.error("Errore upload:", err);
+                updateStatus("Errore salvataggio: " + err.message, "error");
+            }
+        }
+
+
+        // --- 3. Map Initialization (Existing) ---
+        const map = L.map('map').setView([41.8719, 12.5674], 6);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        setTimeout(() => { map.invalidateSize(); }, 100);
+
+        // --- 4. State Management ---
+        let pendingImage = null; 
+        const statusArea = document.getElementById('status-area');
+        const statusText = document.getElementById('status-text');
+
+        // --- 5. Helper Functions ---
+        function convertDMSToDD(degrees, minutes, seconds, direction) {
+            let dd = degrees + minutes / 60 + seconds / 3600;
+            if (direction === "S" || direction === "W") dd = dd * -1;
+            return dd;
+        }
+
+        function updateStatus(message, type) {
+            statusText.textContent = message;
+            statusArea.className = ''; 
+            if (type) statusArea.classList.add(type);
+        }
+
+        function createMarker(lat, lng, imageData, fileName) {
+            const marker = L.marker([lat, lng]).addTo(map);
+            
+            // Unico ID per questo marker per gestire l'evento click
+            const btnId = "drive-btn-" + Date.now();
+
+            const popupContent = `
+                <div class="custom-popup-content">
+                    <img src="${imageData}" class="popup-image" alt="Preview">
+                    <div class="popup-footer">
+                        <button id="${btnId}" class="popup-btn drive-btn">
+                            <i class="fa-brands fa-google-drive"></i> Salva su Drive CAI
+                        </button>
+                        <a href="${imageData}" download="${fileName}" class="popup-btn download-btn">
+                            <i class="fa-solid fa-download"></i> Scarica Locale
+                        </a>
+                    </div>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent, {
+                className: 'custom-popup',
+                minWidth: 200
+            });
+
+            marker.on('popupopen', function() {
+                // Attacca l'evento click al pulsante appena creato nel DOM
+                const btn = document.getElementById(btnId);
+                if(btn) {
+                    btn.onclick = function() {
+                        uploadToDrive(imageData, fileName);
+                    };
+                }
+            });
+
+            marker.openPopup();
+            map.flyTo([lat, lng], 10); 
+        }
+
+        // --- 6. Event Listeners ---
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            updateStatus("Analisi metadati in corso...", "waiting");
+
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const imageData = event.target.result; 
+                const img = new Image();
+                img.src = imageData;
+
+                img.onload = function() {
+                    EXIF.getData(img, function() {
+                        const latData = EXIF.getTag(this, "GPSLatitude");
+                        const lonData = EXIF.getTag(this, "GPSLongitude");
+                        const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                        const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+                        if (latData && lonData && latRef && lonRef) {
+                            const lat = convertDMSToDD(latData[0], latData[1], latData[2], latRef);
+                            const lon = convertDMSToDD(lonData[0], lonData[1], lonData[2], lonRef);
+                            createMarker(lat, lon, imageData, file.name);
+                            updateStatus(`Foto geotaggata. Pronta per l'upload.`, "success");
+                            pendingImage = null;
+                        } else {
+                            pendingImage = { data: imageData, name: file.name };
+                            updateStatus("Nessun GPS. Clicca sulla mappa per posizionare.", "waiting");
+                        }
+                    });
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        map.on('click', function(e) {
+            if (pendingImage) {
+                createMarker(e.latlng.lat, e.latlng.lng, pendingImage.data, pendingImage.name);
+                updateStatus("Marker manuale creato.", "success");
+                pendingImage = null; 
+            }
+        });
+
+    </script>
+</body>
+</html>
