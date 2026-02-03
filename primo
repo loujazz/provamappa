@@ -580,19 +580,57 @@
 
         function updateStatus(message, type) {
             statusText.textContent = message;
-            statusArea.className = ''; 
+            statusArea.className = '';
             if (type) statusArea.classList.add(type);
         }
 
-        function createMarker(lat, lng, imageData, fileName) {
+        // Crea thumbnail ridimensionato per il popup (evita problemi con immagini grandi)
+        function createThumbnail(imageData, maxWidth, maxHeight) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Calcola le nuove dimensioni mantenendo l'aspect ratio
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = height * (maxWidth / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = width * (maxHeight / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = function() {
+                    resolve(imageData); // Fallback all'originale
+                };
+                img.src = imageData;
+            });
+        }
+
+        async function createMarker(lat, lng, imageData, fileName) {
             const marker = L.marker([lat, lng]).addTo(map);
-            
+
             // Unico ID per questo marker per gestire l'evento click
             const btnId = "drive-btn-" + Date.now();
 
+            // Crea thumbnail per il popup (300x200 max) per evitare problemi con immagini grandi
+            const thumbnailData = await createThumbnail(imageData, 300, 200);
+
             const popupContent = `
                 <div class="custom-popup-content">
-                    <img src="${imageData}" class="popup-image" alt="Preview"
+                    <img src="${thumbnailData}" class="popup-image" alt="Preview"
                          onerror="this.outerHTML='<div class=\\'popup-image-error\\'><i class=\\'fa-solid fa-image\\'></i></div>'">
                     <div class="popup-footer">
                         <button id="${btnId}" class="popup-btn drive-btn">
