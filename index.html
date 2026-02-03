@@ -1056,8 +1056,14 @@
         // ============================================
         const CLIENT_ID = '401375135261-95bos3c2radbj9jq8slm6n56rbpdrn0k.apps.googleusercontent.com';
         const API_KEY = 'LA_TUA_API_KEY'; // Opzionale ma consigliato
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const SCOPES = 'https://www.googleapis.com/auth/drive';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+
+        // CARTELLA CONDIVISA - Inserisci qui l'ID della cartella Drive condivisa
+        // Per ottenere l'ID: apri la cartella su Drive, l'URL sarà tipo:
+        // https://drive.google.com/drive/folders/XXXXXXXXXXXXX <- questo è l'ID
+        const SHARED_FOLDER_ID = ''; // Lascia vuoto per permettere selezione manuale
+        const SHARED_FOLDER_NAME = 'Mappa CAI Bologna'; // Nome da mostrare
         // ============================================
 
         // Initialize map centered on Italy
@@ -1365,6 +1371,21 @@
         }
 
         async function loadSavedFolder() {
+            // Se è configurata una cartella condivisa, usa quella
+            if (SHARED_FOLDER_ID) {
+                selectedFolderId = SHARED_FOLDER_ID;
+                selectedFolderName = SHARED_FOLDER_NAME;
+                folderName.textContent = SHARED_FOLDER_NAME;
+                folderInfo.style.display = 'block';
+                syncBtn.disabled = false;
+                // Nascondi il pulsante di selezione cartella
+                selectFolderBtn.style.display = 'none';
+                // Auto-sync on login
+                await syncWithDrive();
+                return;
+            }
+
+            // Altrimenti carica da localStorage
             const savedId = localStorage.getItem('geophoto_folder_id');
             const savedName = localStorage.getItem('geophoto_folder_name');
             if (savedId && savedName) {
