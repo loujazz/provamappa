@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappa Interattiva Italia - GeoPhoto</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f0f2f5;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 380px;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sidebar-header p {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 300;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        /* Google Drive Section */
+        .drive-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .drive-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .drive-header svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .drive-header span {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .drive-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 12px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        .google-btn {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: none;
+        }
+
+        .google-btn.login {
+            background: white;
+            color: #1a1a2e;
+        }
+
+        .google-btn.login:hover {
+            background: #f0f0f0;
+            transform: translateY(-1px);
+        }
+
+        .google-btn.logout {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .google-btn.logout:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .google-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .folder-info {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .folder-info .label {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .folder-info .name {
+            font-size: 0.85rem;
+            color: #00d4ff;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .folder-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .folder-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .folder-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .folder-btn.primary {
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            border: none;
+        }
+
+        .folder-btn.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .folder-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .upload-section {
+            margin-bottom: 24px;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .upload-area:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-area.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .upload-text {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 4px;
+        }
+
+        .upload-hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Message Box */
+        .message-box {
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-box.info {
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            display: block;
+        }
+
+        .message-box.success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            display: block;
+        }
+
+        .message-box.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+            display: block;
+        }
+
+        .message-box.error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            display: block;
+        }
+
+        .message-box p {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stat-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        /* Photo List */
+        .photo-list {
+            margin-top: 16px;
+        }
+
+        .photo-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .photo-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(4px);
+        }
+
+        .photo-item img {
+            width: 48px;
+            height: 48px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .photo-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .photo-name {
+            font-size: 0.85rem;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .photo-coords {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        .photo-badge {
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .photo-badge.gps {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .photo-badge.manual {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .photo-badge.drive {
+            background: rgba(66, 133, 244, 0.2);
+            color: #4285f4;
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding: 16px 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .clear-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Custom Leaflet Popup */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            min-width: 220px;
+        }
+
+        .popup-content {
+            padding: 0;
+        }
+
+        .popup-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .popup-body {
+            padding: 16px;
+        }
+
+        .popup-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .popup-coords {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .popup-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .popup-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .popup-btn.download {
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            color: white;
+        }
+
+        .popup-btn.download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .popup-btn.drive {
+            background: #4285f4;
+            color: white;
+        }
+
+        .popup-btn.drive:hover {
+            background: #3367d6;
+        }
+
+        .popup-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        /* Click instruction overlay */
+        .click-instruction {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 46, 0.95);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            display: none;
+            animation: bounce 2s infinite;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .click-instruction.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        .click-instruction .icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .click-instruction .icon svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+        }
+
+        .cancel-btn {
+            margin-left: 12px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom Marker */
+        .custom-marker {
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .custom-marker-inner {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transform: rotate(45deg);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 46, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        /* Folder Picker Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9998;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: #1a1a2e;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: white;
+        }
+
+        .modal-body {
+            padding: 24px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .folder-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .folder-list-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .folder-list-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .folder-list-item.selected {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .folder-list-item svg {
+            width: 24px;
+            height: 24px;
+            fill: #f59e0b;
+        }
+
+        .folder-list-item span {
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn.cancel {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .modal-btn.confirm {
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            border: none;
+            color: white;
+        }
+
+        .modal-btn.confirm:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .create-folder-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+
+        .create-folder-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .create-folder-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        /* Config Notice */
+        .config-notice {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .config-notice p {
+            color: #f59e0b;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .config-notice code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+
+            .app-container {
+                flex-direction: column;
+            }
+
+            .map-container {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>GeoPhoto Italia</h1>
+                <p>Mappa interattiva con Google Drive</p>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- Google Drive Section -->
+                <div class="drive-section">
+                    <div class="drive-header">
+                        <svg viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+                            <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                            <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+                            <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+                            <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+                            <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+                            <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                        </svg>
+                        <span>Google Drive</span>
+                    </div>
+
+                    <div class="config-notice" id="configNotice">
+                        <p>Configura il <code>CLIENT_ID</code> nel codice con le tue credenziali Google Cloud per abilitare la sincronizzazione.</p>
+                    </div>
+
+                    <div class="drive-status">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Non connesso</span>
+                    </div>
+
+                    <div id="loginSection">
+                        <button class="google-btn login" id="loginBtn">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                            </svg>
+                            Accedi con Google
+                        </button>
+                    </div>
+
+                    <div id="loggedInSection" style="display: none;">
+                        <div class="folder-info" id="folderInfo" style="display: none;">
+                            <div class="label">Cartella collegata</div>
+                            <div class="name">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="#f59e0b">
+                                    <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+                                </svg>
+                                <span id="folderName">-</span>
+                            </div>
+                        </div>
+
+                        <div class="folder-actions">
+                            <button class="folder-btn" id="selectFolderBtn">Seleziona Cartella</button>
+                            <button class="folder-btn primary" id="syncBtn" disabled>Sincronizza</button>
+                        </div>
+
+                        <button class="google-btn logout" id="logoutBtn" style="margin-top: 12px;">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                            </svg>
+                            Disconnetti
+                        </button>
+                    </div>
+                </div>
+
+                <div class="upload-section">
+                    <div class="section-title">Carica Immagine</div>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                            </svg>
+                        </div>
+                        <p class="upload-text">Clicca o trascina un'immagine</p>
+                        <p class="upload-hint">Supporta JPG, PNG con dati EXIF</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+
+                <div class="message-box" id="messageBox">
+                    <p id="messageText"></p>
+                </div>
+
+                <div class="stats-section">
+                    <div class="section-title">Statistiche</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Foto caricate</span>
+                        <span class="stat-value" id="photoCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Con GPS</span>
+                        <span class="stat-value" id="gpsCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Su Drive</span>
+                        <span class="stat-value" id="driveCount">0</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Foto Caricate</div>
+                <div class="photo-list" id="photoList">
+                    <!-- Photo items will be added here -->
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="clear-btn" id="clearBtn">Cancella tutti i marker</button>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="click-instruction" id="clickInstruction">
+                <div class="icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                </div>
+                <span>Clicca sulla mappa per posizionare il marker</span>
+                <button class="cancel-btn" id="cancelBtn">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Caricamento...</div>
+    </div>
+
+    <!-- Folder Picker Modal -->
+    <div class="modal-overlay" id="folderModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Seleziona Cartella Google Drive</h2>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="create-folder-input" id="newFolderName" placeholder="Crea nuova cartella...">
+                <div class="folder-list" id="folderList">
+                    <!-- Folders will be listed here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel" id="modalCancel">Annulla</button>
+                <button class="modal-btn confirm" id="modalConfirm" disabled>Seleziona</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- EXIF JS -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client"></script>
+
+    <!-- Google API Client -->
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <script>
+        // ============================================
+        // CONFIGURAZIONE
+        // ============================================
+        const CLIENT_ID = '401375135261-95bos3c2radbj9jq8slm6n56rbpdrn0k.apps.googleusercontent.com';
+        const API_KEY = 'LA_TUA_API_KEY'; // Opzionale ma consigliato
+        const SCOPES = 'https://www.googleapis.com/auth/drive';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+
+        // CARTELLA CONDIVISA - Inserisci qui l'ID della cartella Drive condivisa
+        // Per ottenere l'ID: apri la cartella su Drive, l'URL sarà tipo:
+        // https://drive.google.com/drive/folders/XXXXXXXXXXXXX <- questo è l'ID
+        const SHARED_FOLDER_ID = '1TrVkxJuSFGG232ix-Uus4ELmalFQRc2w';
+        const SHARED_FOLDER_NAME = 'Mappa CAI Bologna'; // Nome da mostrare
+        // ============================================
+
+        // Initialize map centered on Italy
+        const map = L.map('map').setView([42.5, 12.5], 6);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Custom marker icon
+        const customIcon = L.divIcon({
+            className: 'custom-marker-container',
+            html: '<div class="custom-marker"><div class="custom-marker-inner"></div></div>',
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+        });
+
+        // State management
+        let markers = [];
+        let photos = [];
+        let pendingImage = null;
+        let isWaitingForClick = false;
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let accessToken = null;
+        let selectedFolderId = null;
+        let selectedFolderName = null;
+        let metadataFileId = null;
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const clickInstruction = document.getElementById('clickInstruction');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const photoList = document.getElementById('photoList');
+        const photoCount = document.getElementById('photoCount');
+        const gpsCount = document.getElementById('gpsCount');
+        const driveCount = document.getElementById('driveCount');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const loginSection = document.getElementById('loginSection');
+        const loggedInSection = document.getElementById('loggedInSection');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const selectFolderBtn = document.getElementById('selectFolderBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const folderInfo = document.getElementById('folderInfo');
+        const folderName = document.getElementById('folderName');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        const folderModal = document.getElementById('folderModal');
+        const folderList = document.getElementById('folderList');
+        const modalClose = document.getElementById('modalClose');
+        const modalCancel = document.getElementById('modalCancel');
+        const modalConfirm = document.getElementById('modalConfirm');
+        const newFolderName = document.getElementById('newFolderName');
+        const configNotice = document.getElementById('configNotice');
+
+        // Check if configured
+        const isConfigured = CLIENT_ID !== 'IL_TUO_CLIENT_ID.apps.googleusercontent.com';
+        if (isConfigured) {
+            configNotice.style.display = 'none';
+        }
+
+        // Initialize Google API
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY !== 'LA_TUA_API_KEY' ? API_KEY : undefined,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                gapiInited = true;
+                maybeEnableButtons();
+            } catch (err) {
+                console.error('Error initializing GAPI client:', err);
+            }
+        }
+
+        function gisLoaded() {
+            if (!isConfigured) return;
+
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: handleTokenResponse,
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                loginBtn.disabled = false;
+            }
+        }
+
+        async function handleTokenResponse(resp) {
+            if (resp.error !== undefined) {
+                showMessage('Errore durante l\'autenticazione: ' + resp.error, 'error');
+                return;
+            }
+            accessToken = resp.access_token;
+            // Set token for gapi.client
+            gapi.client.setToken({ access_token: accessToken });
+            updateUILoggedIn();
+            await loadSavedFolder();
+        }
+
+        function updateUILoggedIn() {
+            loginSection.style.display = 'none';
+            loggedInSection.style.display = 'block';
+            statusDot.classList.add('connected');
+            statusText.textContent = 'Connesso';
+            showMessage('Accesso a Google Drive effettuato con successo!', 'success');
+        }
+
+        function updateUILoggedOut() {
+            loginSection.style.display = 'block';
+            loggedInSection.style.display = 'none';
+            statusDot.classList.remove('connected');
+            statusText.textContent = 'Non connesso';
+            folderInfo.style.display = 'none';
+            syncBtn.disabled = true;
+            selectedFolderId = null;
+            selectedFolderName = null;
+            accessToken = null;
+        }
+
+        // Event Listeners
+        loginBtn.addEventListener('click', () => {
+            if (!isConfigured) {
+                showMessage('Configura prima il CLIENT_ID nel codice HTML. Vedi le istruzioni.', 'warning');
+                return;
+            }
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            if (accessToken) {
+                google.accounts.oauth2.revoke(accessToken);
+            }
+            updateUILoggedOut();
+            localStorage.removeItem('geophoto_folder_id');
+            localStorage.removeItem('geophoto_folder_name');
+            showMessage('Disconnesso da Google Drive.', 'info');
+        });
+
+        selectFolderBtn.addEventListener('click', openFolderPicker);
+
+        syncBtn.addEventListener('click', syncWithDrive);
+
+        modalClose.addEventListener('click', closeFolderModal);
+        modalCancel.addEventListener('click', closeFolderModal);
+
+        modalConfirm.addEventListener('click', confirmFolderSelection);
+
+        newFolderName.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && newFolderName.value.trim()) {
+                await createNewFolder(newFolderName.value.trim());
+            }
+        });
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            cancelPendingPlacement();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            clearAllMarkers();
+        });
+
+        map.on('click', (e) => {
+            if (isWaitingForClick && pendingImage) {
+                placeMarker(e.latlng.lat, e.latlng.lng, pendingImage, false);
+                cancelPendingPlacement();
+            }
+        });
+
+        // Google Drive Functions
+        async function openFolderPicker() {
+            showLoading('Caricamento cartelle...');
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+                    fields: 'files(id, name)',
+                    orderBy: 'name',
+                    pageSize: 100
+                });
+
+                const folders = response.result.files || [];
+                renderFolderList(folders);
+                folderModal.classList.add('show');
+            } catch (err) {
+                showMessage('Errore nel caricamento delle cartelle: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderFolderList(folders) {
+            folderList.innerHTML = '';
+
+            if (folders.length === 0) {
+                folderList.innerHTML = '<p style="color: rgba(255,255,255,0.5); text-align: center; padding: 20px;">Nessuna cartella trovata. Creane una nuova sopra.</p>';
+                return;
+            }
+
+            folders.forEach(folder => {
+                const item = document.createElement('div');
+                item.className = 'folder-list-item';
+                item.dataset.id = folder.id;
+                item.dataset.name = folder.name;
+                item.innerHTML = `
+                    <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+                    <span>${folder.name}</span>
+                `;
+                item.addEventListener('click', () => selectFolder(item));
+                folderList.appendChild(item);
+            });
+        }
+
+        function selectFolder(item) {
+            document.querySelectorAll('.folder-list-item').forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+            modalConfirm.disabled = false;
+        }
+
+        async function createNewFolder(name) {
+            showLoading('Creazione cartella...');
+            try {
+                const response = await gapi.client.drive.files.create({
+                    resource: {
+                        name: name,
+                        mimeType: 'application/vnd.google-apps.folder'
+                    },
+                    fields: 'id, name'
+                });
+
+                const newFolder = response.result;
+                selectedFolderId = newFolder.id;
+                selectedFolderName = newFolder.name;
+                saveFolderSelection();
+                closeFolderModal();
+                showMessage(`Cartella "${name}" creata e selezionata!`, 'success');
+            } catch (err) {
+                showMessage('Errore nella creazione della cartella: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function confirmFolderSelection() {
+            const selected = document.querySelector('.folder-list-item.selected');
+            if (selected) {
+                selectedFolderId = selected.dataset.id;
+                selectedFolderName = selected.dataset.name;
+                saveFolderSelection();
+                closeFolderModal();
+            }
+        }
+
+        function saveFolderSelection() {
+            localStorage.setItem('geophoto_folder_id', selectedFolderId);
+            localStorage.setItem('geophoto_folder_name', selectedFolderName);
+            folderName.textContent = selectedFolderName;
+            folderInfo.style.display = 'block';
+            syncBtn.disabled = false;
+            showMessage(`Cartella "${selectedFolderName}" collegata!`, 'success');
+        }
+
+        async function loadSavedFolder() {
+            // Se è configurata una cartella condivisa, usa quella
+            if (SHARED_FOLDER_ID) {
+                selectedFolderId = SHARED_FOLDER_ID;
+                selectedFolderName = SHARED_FOLDER_NAME;
+                folderName.textContent = SHARED_FOLDER_NAME;
+                folderInfo.style.display = 'block';
+                syncBtn.disabled = false;
+                // Nascondi il pulsante di selezione cartella
+                selectFolderBtn.style.display = 'none';
+                // Auto-sync on login
+                await syncWithDrive();
+                return;
+            }
+
+            // Altrimenti carica da localStorage
+            const savedId = localStorage.getItem('geophoto_folder_id');
+            const savedName = localStorage.getItem('geophoto_folder_name');
+            if (savedId && savedName) {
+                selectedFolderId = savedId;
+                selectedFolderName = savedName;
+                folderName.textContent = savedName;
+                folderInfo.style.display = 'block';
+                syncBtn.disabled = false;
+                // Auto-sync on login if folder is configured
+                await syncWithDrive();
+            }
+        }
+
+        function closeFolderModal() {
+            folderModal.classList.remove('show');
+            newFolderName.value = '';
+            modalConfirm.disabled = true;
+        }
+
+        async function syncWithDrive() {
+            if (!selectedFolderId) {
+                showMessage('Seleziona prima una cartella!', 'warning');
+                return;
+            }
+
+            showLoading('Sincronizzazione in corso...');
+            try {
+                // Load metadata file if exists
+                const metadata = await loadMetadataFromDrive();
+
+                // Load images from Drive folder
+                await loadImagesFromDrive(metadata);
+
+                showMessage('Sincronizzazione completata!', 'success');
+            } catch (err) {
+                showMessage('Errore durante la sincronizzazione: ' + err.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadMetadataFromDrive() {
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `'${selectedFolderId}' in parents and name='geophoto_metadata.json' and trashed=false`,
+                    fields: 'files(id, name)'
+                });
+
+                if (response.result.files && response.result.files.length > 0) {
+                    metadataFileId = response.result.files[0].id;
+                    const fileResponse = await gapi.client.drive.files.get({
+                        fileId: metadataFileId,
+                        alt: 'media'
+                    });
+                    return JSON.parse(fileResponse.body);
+                }
+            } catch (err) {
+                console.log('No metadata file found or error loading it:', err);
+            }
+            return null;
+        }
+
+        async function saveMetadataToDrive() {
+            if (!selectedFolderId) return;
+
+            const metadata = photos.map(p => ({
+                name: p.name,
+                lat: p.lat,
+                lon: p.lon,
+                hasGPS: p.hasGPS,
+                driveFileId: p.driveFileId
+            }));
+
+            const content = JSON.stringify(metadata, null, 2);
+            const blob = new Blob([content], { type: 'application/json' });
+
+            try {
+                if (metadataFileId) {
+                    // Update existing file
+                    await updateFileToDrive(metadataFileId, blob);
+                } else {
+                    // Create new file
+                    const result = await uploadFileToDrive('geophoto_metadata.json', blob, 'application/json');
+                    metadataFileId = result.id;
+                }
+            } catch (err) {
+                console.error('Error saving metadata:', err);
+            }
+        }
+
+        async function loadImagesFromDrive(metadata) {
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `'${selectedFolderId}' in parents and (mimeType contains 'image/') and trashed=false`,
+                    fields: 'files(id, name, thumbnailLink, webContentLink)',
+                    pageSize: 100
+                });
+
+                const metadataList = metadata || [];
+                const files = response.result.files || [];
+
+                for (const file of files) {
+                    // Check if already loaded
+                    if (photos.find(p => p.driveFileId === file.id)) continue;
+
+                    const meta = metadataList.find(m => m.driveFileId === file.id);
+
+                    if (meta && meta.lat && meta.lon) {
+                        // Load with saved coordinates
+                        const imageUrl = `https://drive.google.com/thumbnail?id=${file.id}&sz=w400`;
+                        const imageData = {
+                            name: file.name,
+                            dataUrl: imageUrl,
+                            driveFileId: file.id,
+                            isFromDrive: true
+                        };
+                        placeMarker(meta.lat, meta.lon, imageData, meta.hasGPS, true);
+                    }
+                }
+
+                updateStats();
+            } catch (err) {
+                console.error('Error loading images from Drive:', err);
+                throw err;
+            }
+        }
+
+        async function uploadFileToDrive(fileName, blob, mimeType) {
+            const metadata = {
+                name: fileName,
+                parents: [selectedFolderId]
+            };
+
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', blob);
+
+            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: form
+            });
+
+            return await response.json();
+        }
+
+        async function updateFileToDrive(fileId, blob) {
+            const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: blob
+            });
+
+            return await response.json();
+        }
+
+        async function uploadImageToDrive(imageData) {
+            if (!selectedFolderId || !accessToken) return null;
+
+            showLoading('Caricamento su Drive...');
+            try {
+                // Convert dataUrl to blob
+                const response = await fetch(imageData.dataUrl);
+                const blob = await response.blob();
+
+                const result = await uploadFileToDrive(imageData.name, blob, blob.type);
+
+                showMessage(`Immagine "${imageData.name}" caricata su Drive!`, 'success');
+                return result.id;
+            } catch (err) {
+                showMessage('Errore nel caricamento su Drive: ' + err.message, 'error');
+                return null;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Handle file upload
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showMessage('Per favore carica un file immagine valido.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageData = {
+                    name: file.name,
+                    dataUrl: e.target.result,
+                    file: file
+                };
+
+                // Try to read EXIF data
+                EXIF.getData(file, function() {
+                    const lat = EXIF.getTag(this, 'GPSLatitude');
+                    const lon = EXIF.getTag(this, 'GPSLongitude');
+                    const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+                    const lonRef = EXIF.getTag(this, 'GPSLongitudeRef');
+
+                    if (lat && lon) {
+                        // Convert GPS coordinates
+                        const latitude = convertDMSToDD(lat, latRef);
+                        const longitude = convertDMSToDD(lon, lonRef);
+
+                        if (isValidCoordinate(latitude, longitude)) {
+                            placeMarker(latitude, longitude, imageData, true);
+                            showMessage(`Coordinate GPS trovate! Marker posizionato a ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`, 'success');
+                        } else {
+                            promptManualPlacement(imageData);
+                        }
+                    } else {
+                        promptManualPlacement(imageData);
+                    }
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Convert DMS (Degrees, Minutes, Seconds) to Decimal Degrees
+        function convertDMSToDD(dms, ref) {
+            if (!dms || dms.length < 3) return null;
+
+            const degrees = dms[0];
+            const minutes = dms[1];
+            const seconds = dms[2];
+
+            let dd = degrees + minutes / 60 + seconds / 3600;
+
+            if (ref === 'S' || ref === 'W') {
+                dd = dd * -1;
+            }
+
+            return dd;
+        }
+
+        // Validate coordinates
+        function isValidCoordinate(lat, lon) {
+            return lat !== null && lon !== null &&
+                   !isNaN(lat) && !isNaN(lon) &&
+                   lat >= -90 && lat <= 90 &&
+                   lon >= -180 && lon <= 180;
+        }
+
+        // Prompt for manual placement
+        function promptManualPlacement(imageData) {
+            pendingImage = imageData;
+            isWaitingForClick = true;
+            clickInstruction.classList.add('show');
+            showMessage('Nessuna coordinata GPS trovata nell\'immagine. Clicca sulla mappa per posizionare il marker manualmente.', 'warning');
+        }
+
+        // Cancel pending placement
+        function cancelPendingPlacement() {
+            pendingImage = null;
+            isWaitingForClick = false;
+            clickInstruction.classList.remove('show');
+            hideMessage();
+        }
+
+        // Place marker on map
+        async function placeMarker(lat, lon, imageData, hasGPS, fromDrive = false) {
+            const marker = L.marker([lat, lon], { icon: customIcon }).addTo(map);
+
+            const popupContent = createPopupContent(imageData, lat, lon);
+            marker.bindPopup(popupContent, { maxWidth: 280 });
+
+            markers.push(marker);
+
+            let driveFileId = imageData.driveFileId || null;
+
+            // Upload to Drive if connected and not already from Drive
+            if (!fromDrive && selectedFolderId && accessToken && imageData.dataUrl && !imageData.isFromDrive) {
+                driveFileId = await uploadImageToDrive(imageData);
+            }
+
+            const photoData = {
+                ...imageData,
+                lat: lat,
+                lon: lon,
+                hasGPS: hasGPS,
+                marker: marker,
+                driveFileId: driveFileId,
+                isFromDrive: fromDrive || imageData.isFromDrive
+            };
+            photos.push(photoData);
+
+            updateStats();
+            addPhotoToList(photoData, photos.length - 1);
+
+            // Save metadata to Drive
+            if (selectedFolderId && accessToken) {
+                await saveMetadataToDrive();
+            }
+
+            // Center map on new marker
+            if (!fromDrive) {
+                map.setView([lat, lon], Math.max(map.getZoom(), 10));
+            }
+        }
+
+        // Create popup content
+        function createPopupContent(imageData, lat, lon) {
+            const container = document.createElement('div');
+            container.className = 'popup-content';
+
+            const imgSrc = imageData.isFromDrive
+                ? `https://drive.google.com/thumbnail?id=${imageData.driveFileId}&sz=w400`
+                : imageData.dataUrl;
+
+            container.innerHTML = `
+                <img src="${imgSrc}" alt="${imageData.name}" class="popup-image" crossorigin="anonymous">
+                <div class="popup-body">
+                    <div class="popup-title">${imageData.name}</div>
+                    <div class="popup-coords">
+                        Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}
+                    </div>
+                    <div class="popup-buttons">
+                        <button class="popup-btn download" onclick="downloadImage('${imageData.name}', '${imageData.dataUrl || ''}', '${imageData.driveFileId || ''}')">
+                            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                            Scarica
+                        </button>
+                        ${imageData.driveFileId ? `
+                        <button class="popup-btn drive" onclick="window.open('https://drive.google.com/file/d/${imageData.driveFileId}/view', '_blank')">
+                            <svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+                            Drive
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            return container;
+        }
+
+        // Download image function
+        async function downloadImage(filename, dataUrl, driveFileId) {
+            if (dataUrl && !dataUrl.startsWith('https://drive.google.com')) {
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else if (driveFileId) {
+                window.open(`https://drive.google.com/uc?export=download&id=${driveFileId}`, '_blank');
+            }
+            showMessage(`Download di "${filename}" avviato!`, 'success');
+        }
+
+        // Add photo to sidebar list
+        function addPhotoToList(photoData, index) {
+            const item = document.createElement('div');
+            item.className = 'photo-item';
+
+            const imgSrc = photoData.isFromDrive
+                ? `https://drive.google.com/thumbnail?id=${photoData.driveFileId}&sz=w100`
+                : photoData.dataUrl;
+
+            let badge = photoData.hasGPS ? 'gps' : 'manual';
+            let badgeText = photoData.hasGPS ? 'GPS' : 'Manual';
+            if (photoData.driveFileId) {
+                badge = 'drive';
+                badgeText = 'Drive';
+            }
+
+            item.innerHTML = `
+                <img src="${imgSrc}" alt="${photoData.name}" crossorigin="anonymous">
+                <div class="photo-info">
+                    <div class="photo-name">${photoData.name}</div>
+                    <div class="photo-coords">${photoData.lat.toFixed(4)}, ${photoData.lon.toFixed(4)}</div>
+                </div>
+                <span class="photo-badge ${badge}">
+                    ${badgeText}
+                </span>
+            `;
+
+            item.addEventListener('click', () => {
+                map.setView([photoData.lat, photoData.lon], 15);
+                photoData.marker.openPopup();
+            });
+
+            photoList.appendChild(item);
+        }
+
+        // Update statistics
+        function updateStats() {
+            photoCount.textContent = photos.length;
+            gpsCount.textContent = photos.filter(p => p.hasGPS).length;
+            driveCount.textContent = photos.filter(p => p.driveFileId).length;
+        }
+
+        // Clear all markers
+        function clearAllMarkers() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            photos = [];
+            photoList.innerHTML = '';
+            updateStats();
+            hideMessage();
+            showMessage('Tutti i marker sono stati rimossi.', 'info');
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            messageText.textContent = text;
+            messageBox.className = 'message-box ' + type;
+        }
+
+        // Hide message
+        function hideMessage() {
+            messageBox.className = 'message-box';
+        }
+
+        // Show loading
+        function showLoading(text = 'Caricamento...') {
+            loadingText.textContent = text;
+            loadingOverlay.classList.add('show');
+        }
+
+        // Hide loading
+        function hideLoading() {
+            loadingOverlay.classList.remove('show');
+        }
+
+        // Make functions globally accessible
+        window.downloadImage = downloadImage;
+        window.gapiLoaded = gapiLoaded;
+        window.gisLoaded = gisLoaded;
+
+        // Initialize APIs when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            gapiLoaded();
+            setTimeout(gisLoaded, 100);
+        });
+    </script>
+</body>
+</html>
