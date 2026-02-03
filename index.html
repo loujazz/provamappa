@@ -1165,14 +1165,16 @@
             }
         }
 
-        function handleTokenResponse(resp) {
+        async function handleTokenResponse(resp) {
             if (resp.error !== undefined) {
                 showMessage('Errore durante l\'autenticazione: ' + resp.error, 'error');
                 return;
             }
             accessToken = resp.access_token;
+            // Set token for gapi.client
+            gapi.client.setToken({ access_token: accessToken });
             updateUILoggedIn();
-            loadSavedFolder();
+            await loadSavedFolder();
         }
 
         function updateUILoggedIn() {
@@ -1362,7 +1364,7 @@
             showMessage(`Cartella "${selectedFolderName}" collegata!`, 'success');
         }
 
-        function loadSavedFolder() {
+        async function loadSavedFolder() {
             const savedId = localStorage.getItem('geophoto_folder_id');
             const savedName = localStorage.getItem('geophoto_folder_name');
             if (savedId && savedName) {
@@ -1371,6 +1373,8 @@
                 folderName.textContent = savedName;
                 folderInfo.style.display = 'block';
                 syncBtn.disabled = false;
+                // Auto-sync on login if folder is configured
+                await syncWithDrive();
             }
         }
 
@@ -1389,10 +1393,10 @@
             showLoading('Sincronizzazione in corso...');
             try {
                 // Load metadata file if exists
-                await loadMetadataFromDrive();
+                const metadata = await loadMetadataFromDrive();
 
                 // Load images from Drive folder
-                await loadImagesFromDrive();
+                await loadImagesFromDrive(metadata);
 
                 showMessage('Sincronizzazione completata!', 'success');
             } catch (err) {
@@ -1451,7 +1455,7 @@
             }
         }
 
-        async function loadImagesFromDrive() {
+        async function loadImagesFromDrive(metadata) {
             try {
                 const response = await gapi.client.drive.files.list({
                     q: `'${selectedFolderId}' in parents and (mimeType contains 'image/') and trashed=false`,
@@ -1459,14 +1463,14 @@
                     pageSize: 100
                 });
 
-                const metadata = await loadMetadataFromDrive() || [];
+                const metadataList = metadata || [];
                 const files = response.result.files || [];
 
                 for (const file of files) {
                     // Check if already loaded
                     if (photos.find(p => p.driveFileId === file.id)) continue;
 
-                    const meta = metadata.find(m => m.driveFileId === file.id);
+                    const meta = metadataList.find(m => m.driveFileId === file.id);
 
                     if (meta && meta.lat && meta.lon) {
                         // Load with saved coordinates
