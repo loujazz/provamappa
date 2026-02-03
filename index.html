@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mappa Interattiva Italia - GeoPhoto</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f0f2f5;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 360px;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sidebar-header p {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 300;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .upload-section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .upload-area:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .upload-text {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 4px;
+        }
+
+        .upload-hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Message Box */
+        .message-box {
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-box.info {
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            display: block;
+        }
+
+        .message-box.success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            display: block;
+        }
+
+        .message-box.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+            display: block;
+        }
+
+        .message-box.error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            display: block;
+        }
+
+        .message-box p {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stat-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        /* Photo List */
+        .photo-list {
+            margin-top: 16px;
+        }
+
+        .photo-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .photo-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(4px);
+        }
+
+        .photo-item img {
+            width: 48px;
+            height: 48px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .photo-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .photo-name {
+            font-size: 0.85rem;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .photo-coords {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        .photo-badge {
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .photo-badge.gps {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .photo-badge.manual {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding: 16px 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .clear-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Custom Leaflet Popup */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .leaflet-popup-content {
+            margin: 0;
+            min-width: 220px;
+        }
+
+        .popup-content {
+            padding: 0;
+        }
+
+        .popup-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .popup-body {
+            padding: 16px;
+        }
+
+        .popup-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .popup-coords {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
+        .download-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
+        }
+
+        .download-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: white;
+        }
+
+        /* Click instruction overlay */
+        .click-instruction {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 26, 46, 0.95);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            display: none;
+            animation: bounce 2s infinite;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .click-instruction.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+        }
+
+        .click-instruction .icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .click-instruction .icon svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+        }
+
+        .cancel-btn {
+            margin-left: 12px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom Marker */
+        .custom-marker {
+            background: linear-gradient(135deg, #00d4ff, #7c3aed);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .custom-marker-inner {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transform: rotate(45deg);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+
+            .app-container {
+                flex-direction: column;
+            }
+
+            .map-container {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>GeoPhoto Italia</h1>
+                <p>Mappa interattiva con geolocalizzazione foto</p>
+            </div>
+
+            <div class="sidebar-content">
+                <div class="upload-section">
+                    <div class="section-title">Carica Immagine</div>
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                            </svg>
+                        </div>
+                        <p class="upload-text">Clicca o trascina un'immagine</p>
+                        <p class="upload-hint">Supporta JPG, PNG con dati EXIF</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                </div>
+
+                <div class="message-box" id="messageBox">
+                    <p id="messageText"></p>
+                </div>
+
+                <div class="stats-section">
+                    <div class="section-title">Statistiche</div>
+                    <div class="stat-item">
+                        <span class="stat-label">Foto caricate</span>
+                        <span class="stat-value" id="photoCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Con GPS</span>
+                        <span class="stat-value" id="gpsCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Posizionate manualmente</span>
+                        <span class="stat-value" id="manualCount">0</span>
+                    </div>
+                </div>
+
+                <div class="section-title">Foto Caricate</div>
+                <div class="photo-list" id="photoList">
+                    <!-- Photo items will be added here -->
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="clear-btn" id="clearBtn">Cancella tutti i marker</button>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="click-instruction" id="clickInstruction">
+                <div class="icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                </div>
+                <span>Clicca sulla mappa per posizionare il marker</span>
+                <button class="cancel-btn" id="cancelBtn">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- EXIF JS -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
+    <script>
+        // Initialize map centered on Italy
+        const map = L.map('map').setView([42.5, 12.5], 6);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Custom marker icon
+        const customIcon = L.divIcon({
+            className: 'custom-marker-container',
+            html: '<div class="custom-marker"><div class="custom-marker-inner"></div></div>',
+            iconSize: [36, 36],
+            iconAnchor: [18, 36],
+            popupAnchor: [0, -36]
+        });
+
+        // State management
+        let markers = [];
+        let photos = [];
+        let pendingImage = null;
+        let isWaitingForClick = false;
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const clickInstruction = document.getElementById('clickInstruction');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const photoList = document.getElementById('photoList');
+        const photoCount = document.getElementById('photoCount');
+        const gpsCount = document.getElementById('gpsCount');
+        const manualCount = document.getElementById('manualCount');
+
+        // Event Listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            cancelPendingPlacement();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            clearAllMarkers();
+        });
+
+        map.on('click', (e) => {
+            if (isWaitingForClick && pendingImage) {
+                placeMarker(e.latlng.lat, e.latlng.lng, pendingImage, false);
+                cancelPendingPlacement();
+            }
+        });
+
+        // Handle file upload
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showMessage('Per favore carica un file immagine valido.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageData = {
+                    name: file.name,
+                    dataUrl: e.target.result,
+                    file: file
+                };
+
+                // Try to read EXIF data
+                EXIF.getData(file, function() {
+                    const lat = EXIF.getTag(this, 'GPSLatitude');
+                    const lon = EXIF.getTag(this, 'GPSLongitude');
+                    const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+                    const lonRef = EXIF.getTag(this, 'GPSLongitudeRef');
+
+                    if (lat && lon) {
+                        // Convert GPS coordinates
+                        const latitude = convertDMSToDD(lat, latRef);
+                        const longitude = convertDMSToDD(lon, lonRef);
+
+                        if (isValidCoordinate(latitude, longitude)) {
+                            placeMarker(latitude, longitude, imageData, true);
+                            showMessage(`Coordinate GPS trovate! Marker posizionato a ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`, 'success');
+                        } else {
+                            promptManualPlacement(imageData);
+                        }
+                    } else {
+                        promptManualPlacement(imageData);
+                    }
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Convert DMS (Degrees, Minutes, Seconds) to Decimal Degrees
+        function convertDMSToDD(dms, ref) {
+            if (!dms || dms.length < 3) return null;
+
+            const degrees = dms[0];
+            const minutes = dms[1];
+            const seconds = dms[2];
+
+            let dd = degrees + minutes / 60 + seconds / 3600;
+
+            if (ref === 'S' || ref === 'W') {
+                dd = dd * -1;
+            }
+
+            return dd;
+        }
+
+        // Validate coordinates
+        function isValidCoordinate(lat, lon) {
+            return lat !== null && lon !== null &&
+                   !isNaN(lat) && !isNaN(lon) &&
+                   lat >= -90 && lat <= 90 &&
+                   lon >= -180 && lon <= 180;
+        }
+
+        // Prompt for manual placement
+        function promptManualPlacement(imageData) {
+            pendingImage = imageData;
+            isWaitingForClick = true;
+            clickInstruction.classList.add('show');
+            showMessage('Nessuna coordinata GPS trovata nell\'immagine. Clicca sulla mappa per posizionare il marker manualmente.', 'warning');
+        }
+
+        // Cancel pending placement
+        function cancelPendingPlacement() {
+            pendingImage = null;
+            isWaitingForClick = false;
+            clickInstruction.classList.remove('show');
+            hideMessage();
+        }
+
+        // Place marker on map
+        function placeMarker(lat, lon, imageData, hasGPS) {
+            const marker = L.marker([lat, lon], { icon: customIcon }).addTo(map);
+
+            const popupContent = createPopupContent(imageData, lat, lon);
+            marker.bindPopup(popupContent, { maxWidth: 250 });
+
+            markers.push(marker);
+
+            const photoData = {
+                ...imageData,
+                lat: lat,
+                lon: lon,
+                hasGPS: hasGPS,
+                marker: marker
+            };
+            photos.push(photoData);
+
+            updateStats();
+            addPhotoToList(photoData, photos.length - 1);
+
+            // Center map on new marker
+            map.setView([lat, lon], Math.max(map.getZoom(), 10));
+        }
+
+        // Create popup content
+        function createPopupContent(imageData, lat, lon) {
+            const container = document.createElement('div');
+            container.className = 'popup-content';
+            container.innerHTML = `
+                <img src="${imageData.dataUrl}" alt="${imageData.name}" class="popup-image">
+                <div class="popup-body">
+                    <div class="popup-title">${imageData.name}</div>
+                    <div class="popup-coords">
+                        Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}
+                    </div>
+                    <button class="download-btn" onclick="downloadImage('${imageData.name}', '${imageData.dataUrl}')">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                        </svg>
+                        Scarica Immagine
+                    </button>
+                </div>
+            `;
+            return container;
+        }
+
+        // Download image function
+        function downloadImage(filename, dataUrl) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showMessage(`Download di "${filename}" avviato!`, 'success');
+        }
+
+        // Add photo to sidebar list
+        function addPhotoToList(photoData, index) {
+            const item = document.createElement('div');
+            item.className = 'photo-item';
+            item.innerHTML = `
+                <img src="${photoData.dataUrl}" alt="${photoData.name}">
+                <div class="photo-info">
+                    <div class="photo-name">${photoData.name}</div>
+                    <div class="photo-coords">${photoData.lat.toFixed(4)}, ${photoData.lon.toFixed(4)}</div>
+                </div>
+                <span class="photo-badge ${photoData.hasGPS ? 'gps' : 'manual'}">
+                    ${photoData.hasGPS ? 'GPS' : 'Manual'}
+                </span>
+            `;
+
+            item.addEventListener('click', () => {
+                map.setView([photoData.lat, photoData.lon], 15);
+                photoData.marker.openPopup();
+            });
+
+            photoList.appendChild(item);
+        }
+
+        // Update statistics
+        function updateStats() {
+            photoCount.textContent = photos.length;
+            gpsCount.textContent = photos.filter(p => p.hasGPS).length;
+            manualCount.textContent = photos.filter(p => !p.hasGPS).length;
+        }
+
+        // Clear all markers
+        function clearAllMarkers() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            photos = [];
+            photoList.innerHTML = '';
+            updateStats();
+            hideMessage();
+            showMessage('Tutti i marker sono stati rimossi.', 'info');
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            messageText.textContent = text;
+            messageBox.className = 'message-box ' + type;
+        }
+
+        // Hide message
+        function hideMessage() {
+            messageBox.className = 'message-box';
+        }
+
+        // Make downloadImage function globally accessible
+        window.downloadImage = downloadImage;
+    </script>
+</body>
+</html>
