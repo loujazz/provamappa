@@ -250,6 +250,18 @@
             height: 150px;
             object-fit: cover;
             display: block;
+            background-color: #e2e8f0;
+        }
+
+        .popup-image-error {
+            width: 100%;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f1f5f9;
+            color: #64748b;
+            font-size: 2rem;
         }
 
         .popup-footer {
@@ -580,7 +592,8 @@
 
             const popupContent = `
                 <div class="custom-popup-content">
-                    <img src="${imageData}" class="popup-image" alt="Preview">
+                    <img src="${imageData}" class="popup-image" alt="Preview"
+                         onerror="this.outerHTML='<div class=\\'popup-image-error\\'><i class=\\'fa-solid fa-image\\'></i></div>'">
                     <div class="popup-footer">
                         <button id="${btnId}" class="popup-btn drive-btn">
                             <i class="fa-brands fa-google-drive"></i> Salva su Drive CAI
@@ -621,30 +634,63 @@
             const reader = new FileReader();
             
             reader.onload = function(event) {
-                const imageData = event.target.result; 
+                const imageData = event.target.result;
                 const img = new Image();
-                img.src = imageData;
+
+                img.onerror = function() {
+                    updateStatus("Errore: impossibile caricare l'immagine.", "error");
+                };
 
                 img.onload = function() {
-                    EXIF.getData(img, function() {
-                        const latData = EXIF.getTag(this, "GPSLatitude");
-                        const lonData = EXIF.getTag(this, "GPSLongitude");
-                        const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-                        const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-                        if (latData && lonData && latRef && lonRef) {
-                            const lat = convertDMSToDD(latData[0], latData[1], latData[2], latRef);
-                            const lon = convertDMSToDD(lonData[0], lonData[1], lonData[2], lonRef);
-                            createMarker(lat, lon, imageData, file.name);
-                            updateStatus(`Foto geotaggata. Pronta per l'upload.`, "success");
-                            pendingImage = null;
-                        } else {
+                    // Timeout per EXIF nel caso non risponda
+                    let exifProcessed = false;
+                    const exifTimeout = setTimeout(function() {
+                        if (!exifProcessed) {
+                            exifProcessed = true;
                             pendingImage = { data: imageData, name: file.name };
-                            updateStatus("Nessun GPS. Clicca sulla mappa per posizionare.", "waiting");
+                            updateStatus("Nessun GPS trovato. Clicca sulla mappa per posizionare.", "waiting");
                         }
-                    });
+                    }, 3000);
+
+                    try {
+                        EXIF.getData(img, function() {
+                            if (exifProcessed) return;
+                            exifProcessed = true;
+                            clearTimeout(exifTimeout);
+
+                            const latData = EXIF.getTag(this, "GPSLatitude");
+                            const lonData = EXIF.getTag(this, "GPSLongitude");
+                            const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                            const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+                            if (latData && lonData && latRef && lonRef) {
+                                const lat = convertDMSToDD(latData[0], latData[1], latData[2], latRef);
+                                const lon = convertDMSToDD(lonData[0], lonData[1], lonData[2], lonRef);
+                                createMarker(lat, lon, imageData, file.name);
+                                updateStatus(`Foto geotaggata. Pronta per l'upload.`, "success");
+                                pendingImage = null;
+                            } else {
+                                pendingImage = { data: imageData, name: file.name };
+                                updateStatus("Nessun GPS. Clicca sulla mappa per posizionare.", "waiting");
+                            }
+                        });
+                    } catch (exifError) {
+                        if (!exifProcessed) {
+                            exifProcessed = true;
+                            clearTimeout(exifTimeout);
+                            pendingImage = { data: imageData, name: file.name };
+                            updateStatus("Errore lettura metadati. Clicca sulla mappa per posizionare.", "waiting");
+                        }
+                    }
                 };
+
+                img.src = imageData;
             };
+
+            reader.onerror = function() {
+                updateStatus("Errore nella lettura del file.", "error");
+            };
+
             reader.readAsDataURL(file);
         });
 
