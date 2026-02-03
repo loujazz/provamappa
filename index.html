@@ -1456,7 +1456,8 @@
                 lat: p.lat,
                 lon: p.lon,
                 hasGPS: p.hasGPS,
-                driveFileId: p.driveFileId
+                driveFileId: p.driveFileId,
+                thumbnailLink: p.thumbnailLink
             }));
 
             const content = JSON.stringify(metadata, null, 2);
@@ -1495,11 +1496,11 @@
 
                     if (meta && meta.lat && meta.lon) {
                         // Load with saved coordinates
-                        const imageUrl = `https://drive.google.com/thumbnail?id=${file.id}&sz=w400`;
+                        // Use thumbnailLink from API or from saved metadata
                         const imageData = {
                             name: file.name,
-                            dataUrl: imageUrl,
                             driveFileId: file.id,
+                            thumbnailLink: file.thumbnailLink || meta.thumbnailLink,
                             isFromDrive: true
                         };
                         placeMarker(meta.lat, meta.lon, imageData, meta.hasGPS, true);
@@ -1673,6 +1674,7 @@
                 hasGPS: hasGPS,
                 marker: marker,
                 driveFileId: driveFileId,
+                thumbnailLink: imageData.thumbnailLink || null,
                 isFromDrive: fromDrive || imageData.isFromDrive
             };
             photos.push(photoData);
@@ -1691,17 +1693,29 @@
             }
         }
 
+        // Get image source URL for Drive images
+        function getDriveImageUrl(imageData, size = 400) {
+            if (!imageData.isFromDrive || !imageData.driveFileId) {
+                return imageData.dataUrl;
+            }
+            // Use thumbnailLink if available, otherwise use lh3 URL which works better
+            if (imageData.thumbnailLink) {
+                // Modify thumbnail size in the URL
+                return imageData.thumbnailLink.replace(/=s\d+/, `=s${size}`);
+            }
+            // Fallback: use lh3.googleusercontent.com which handles Drive images
+            return `https://lh3.googleusercontent.com/d/${imageData.driveFileId}=s${size}`;
+        }
+
         // Create popup content
         function createPopupContent(imageData, lat, lon) {
             const container = document.createElement('div');
             container.className = 'popup-content';
 
-            const imgSrc = imageData.isFromDrive
-                ? `https://drive.google.com/thumbnail?id=${imageData.driveFileId}&sz=w400`
-                : imageData.dataUrl;
+            const imgSrc = getDriveImageUrl(imageData, 400);
 
             container.innerHTML = `
-                <img src="${imgSrc}" alt="${imageData.name}" class="popup-image" crossorigin="anonymous">
+                <img src="${imgSrc}" alt="${imageData.name}" class="popup-image" onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23e0e0e0%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%2212%22>Immagine</text></svg>';">
                 <div class="popup-body">
                     <div class="popup-title">${imageData.name}</div>
                     <div class="popup-coords">
@@ -1744,9 +1758,7 @@
             const item = document.createElement('div');
             item.className = 'photo-item';
 
-            const imgSrc = photoData.isFromDrive
-                ? `https://drive.google.com/thumbnail?id=${photoData.driveFileId}&sz=w100`
-                : photoData.dataUrl;
+            const imgSrc = getDriveImageUrl(photoData, 100);
 
             let badge = photoData.hasGPS ? 'gps' : 'manual';
             let badgeText = photoData.hasGPS ? 'GPS' : 'Manual';
@@ -1756,7 +1768,7 @@
             }
 
             item.innerHTML = `
-                <img src="${imgSrc}" alt="${photoData.name}" crossorigin="anonymous">
+                <img src="${imgSrc}" alt="${photoData.name}" onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><rect fill=%22%23e0e0e0%22 width=%2248%22 height=%2248%22 rx=%228%22/><text x=%2224%22 y=%2228%22 text-anchor=%22middle%22 fill=%22%23999%22 font-size=%228%22>Foto</text></svg>';">
                 <div class="photo-info">
                     <div class="photo-name">${photoData.name}</div>
                     <div class="photo-coords">${photoData.lat.toFixed(4)}, ${photoData.lon.toFixed(4)}</div>
